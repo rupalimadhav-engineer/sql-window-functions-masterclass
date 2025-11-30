@@ -1,0 +1,384 @@
+drop table if exists employee;
+ create table employee
+ ( emp_ID int
+ , emp_NAME varchar(50)
+ , DEPT_NAME varchar(50)
+ , SALARY int);
+
+ insert into employee values(101, 'Mohan', 'Admin', 4000);
+ insert into employee values(102, 'Rajkumar', 'HR', 3000);
+ insert into employee values(103, 'Akbar', 'IT', 4000);
+ insert into employee values(104, 'Dorvin', 'Finance', 6500);
+ insert into employee values(105, 'Rohit', 'HR', 3000);
+ insert into employee values(106, 'Rajesh', 'Finance', 5000);
+ insert into employee values(107, 'Preet', 'HR', 7000);
+ insert into employee values(108, 'Maryam', 'Admin', 4000);
+ insert into employee values(109, 'Sanjay', 'IT', 6500);
+ insert into employee values(110, 'Vasudha', 'IT', 7000);
+ insert into employee values(111, 'Melinda', 'IT', 8000);
+ insert into employee values(112, 'Komal', 'IT', 10000);
+ insert into employee values(113, 'Gautham', 'Admin', 2000);
+ insert into employee values(114, 'Manisha', 'HR', 3000);
+ insert into employee values(115, 'Chandni', 'IT', 4500);
+ insert into employee values(116, 'Satya', 'Finance', 6500);
+ insert into employee values(117, 'Adarsh', 'HR', 3500);
+ insert into employee values(118, 'Tejaswi', 'Finance', 5500);
+ insert into employee values(119, 'Cory', 'HR', 8000);
+ insert into employee values(120, 'Monica', 'Admin', 5000);
+ insert into employee values(121, 'Rosalin', 'IT', 6000);
+ insert into employee values(122, 'Ibrahim', 'IT', 8000);
+ insert into employee values(123, 'Vikram', 'IT', 8000);
+ insert into employee values(124, 'Dheeraj', 'IT', 11000);
+ 
+ -- Aggregate as window function(keeps rows)
+ --show  max-salary next to every employee row.
+ --remember symbol , because it needs in window function
+ 
+ select e.* ,
+ max(salary) over() as max_salary
+ from employee as e ;
+ 
+ -- show departmentwise max-salary next to every employee
+ 
+ select e.*, 
+ max(salary) over(partition by dept_name) as max_salary
+ from employee as e;
+ 
+ --show min_salary next to every employee
+ 
+ select e.*,
+ min(salary) over() as min_salary
+ from employee e;
+ 
+ --show department wise minimum salary
+ 
+ select e.*,
+ min(salary) over(partition by dept_name) as min_salary
+ from employee as e;
+ 
+ --show departmentwise average salary
+ 
+ select e.*,
+ avg(salary) over(partition by dept_name) as avg_salary
+ from employee e;
+ 
+ --show departmentwise total salary
+ 
+ select e.*,
+ sum(salary) over(partition by dept_name) as total_salary
+ from employee e;
+ 
+ --count total employees
+ 
+ select e.*, 
+ count(*) over() as total_employee
+ from employee as e;
+ 
+ -- count employees per department
+ 
+ select e.*,
+ count(*) over(partition by dept_name) as employee_per_department
+ from employee as e;
+ 
+ --ROW_NUMBER(),RANK(),DENSE_RANK()
+ 
+ -- ROW_NUMBER:wants unique sequential number inside partition
+ -- order by we are using only to get salary in sequence  number in order
+ select e.* ,
+ row_number() over(partition by dept_name order by salary) as sequence
+ from employee as e;
+ 
+ --RANK: gives ties(duplicates) the same rank but leaves gaps after ties(duplictes)
+ -- here rank works only with order by otherwise gives 1
+ select e.*,
+ rank() over (partition by dept_name order by salary desc ) as rank
+ from employee as e;
+ 
+ --DENSE_RANK:gives ties(duplicates) the same rank but does not leaves gaps after ties(duplictes)
+ 
+ select e.*,
+ dense_rank () over(partition by dept_name order by salary desc) as dense_rank  
+ from employee as e;
+ 
+ --COMBINED COMPARISION
+ 
+select e.*,
+row_number() over(partition by dept_name order by salary desc ) as row_number,
+rank() over(partition by dept_name order by salary desc) as rank,
+dense_rank() over (partition by dept_name order by salary desc)
+from employee as e;
+ 
+ --pick first N rows per group 
+-- first 2 hires per department (asking per department so partition it) 
+-- wants first two hiers and unique is their id i.e emp_id so use it for order by )
+
+select * from(
+select e.*,
+row_number() over(partition by dept_name order by emp_id) as row_number
+from employee as e) x
+where x.row_number < 3;--change to <=2
+
+-- top 3 earners per department
+-- want 3 earners means top 3 salaried persons so cann't use =3 only 3rd ranked person will get)
+-- earner depends on salary so order by salary
+
+select * from
+(select e.*, 
+rank() over(partition by dept_name order by salary) as rank
+from employee as e) x
+where x.rank <4 ;
+ 
+--LEAD(),AND LAG() - compare with previous / next row
+-- compare salary with previous employee within department(asked so partition by dept_name)
+-- whenever asks previous use lag, previous employee(means needs employee id)
+-- in output we will get infront of persons record those who have higher salary than previous employee
+ 
+select e.*, 
+ lag(salary) over(partition by dept_name order by emp_id ) as previous_employee_salary,
+ case 
+ 	when e.salary > lag(salary) over(partition by dept_name order by emp_id ) 
+ 	then 'higher than previous employee'
+ end as sal_range 
+ from employee e ;
+
+--lower salary than previous employee
+--in output sise by side two colums we csn see salary and previus employee salary 
+--in when we compare only these columns like e.salary < previous emplpyee salary
+select e.*,
+lag(salary) over(partition by dept_name order by emp_id) as previous_employee_salary,
+case
+	when e.salary <lag(salary) over(partition by dept_name order by emp_id)
+	then 'lower than previous employee'
+end as sal_range
+from employee as e;
+
+--same as previous employee
+
+select e.* ,
+lag(salary) over(partition by dept_name order by emp_id) as previous_employee_salary,
+case
+	when e.salary = lag(salary) over(partition by dept_name order by emp_id)
+	then 'same as previous employee'
+end as result
+from employee as e;
+
+-- now add all this conditions in one query and if it will nat satisfied then add ''
+
+select e.* ,
+lag(salary) over(partition by dept_name order by emp_id) as previous_employee_salary,
+case
+	when e.salary < lag(salary) over(partition by dept_name order by emp_id)
+	then 'lower than previous employee'
+	when e.salary > lag(salary) over(partition by dept_name order by emp_id)
+	then 'higher than previous employee'
+	when e.salary < lag(salary) over(partition by dept_name order by emp_id)
+	then 'same as previous employee'
+	else 'No previous employee'
+end as sal_range
+from employee as e;
+ 
+ -- SHOW PREVIOUS AND NEXT SALARY
+
+select e.*, 
+lag(salary) over(partition by dept_name order by emp_id) as prev_emp_sal,
+lead(salary) over (partition by dept_name order by emp_id) as next_emp_sal
+from employee as e;
+
+--FIRST_VALUE , LAST_VALUE
+
+--Erliest hired employee salary per department
+
+select e.*, 
+first_value(salary) over(partition by dept_name order by salary) as first_salary
+from employee as e;
+ 
+--latest hired employee salary per department
+
+select e.*, 
+last_value(salary) over (partition by dept_name order by salary) as last_salary
+from employee as e;
+ 
+ 
+ DROP TABLE product;
+CREATE TABLE product
+( 
+    product_category varchar(255),
+    brand varchar(255),
+    product_name varchar(255),
+    price int
+);
+
+INSERT INTO product VALUES
+('Phone', 'Apple', 'iPhone 12 Pro Max', 1300),
+('Phone', 'Apple', 'iPhone 12 Pro', 1100),
+('Phone', 'Apple', 'iPhone 12', 1000),
+('Phone', 'Samsung', 'Galaxy Z Fold 3', 1800),
+('Phone', 'Samsung', 'Galaxy Z Flip 3', 1000),
+('Phone', 'Samsung', 'Galaxy Note 20', 1200),
+('Phone', 'Samsung', 'Galaxy S21', 1000),
+('Phone', 'OnePlus', 'OnePlus Nord', 300),
+('Phone', 'OnePlus', 'OnePlus 9', 800),
+('Phone', 'Google', 'Pixel 5', 600),
+('Laptop', 'Apple', 'MacBook Pro 13', 2000),
+('Laptop', 'Apple', 'MacBook Air', 1200),
+('Laptop', 'Microsoft', 'Surface Laptop 4', 2100),
+('Laptop', 'Dell', 'XPS 13', 2000),
+('Laptop', 'Dell', 'XPS 15', 2300),
+('Laptop', 'Dell', 'XPS 17', 2500),
+('Earphone', 'Apple', 'AirPods Pro', 280),
+('Earphone', 'Samsung', 'Galaxy Buds Pro', 220),
+('Earphone', 'Samsung', 'Galaxy Buds Live', 170),
+('Earphone', 'Sony', 'WF-1000XM4', 250),
+('Headphone', 'Sony', 'WH-1000XM4', 400),
+('Headphone', 'Apple', 'AirPods Max', 550),
+('Headphone', 'Microsoft', 'Surface Headphones 2', 250),
+('Smartwatch', 'Apple', 'Apple Watch Series 6', 1000),
+('Smartwatch', 'Apple', 'Apple Watch SE', 400),
+('Smartwatch', 'Samsung', 'Galaxy Watch 4', 600),
+('Smartwatch', 'OnePlus', 'OnePlus Watch', 220);
+ 
+ -- View all products
+
+select * from product;
+ 
+-- MOST EXPENSIVE PRODUCT PER CATEGORY
+-- we want expensive product means product name so in first value we pass argument as product_name
+
+select e.*,
+first_value(product_name) over(partition by product_category order by price DESC) as expensive_product
+from product e;
+
+--LEAST EXPENSIVE PRODUCT PER CATEGORY
+-- here we can use order by asc instead desc then we will get least expensive value at the top
+
+select e.*,
+last_value(product_name) over(partition by product_category order by price asc) as least_expensive_product
+from product e;
+
+--need full window frame to work properly, means if we want output of both qurties at a time then
+
+select product_name,product_category,price,
+first_value(product_name) over(partition by product_category order by price DESC) as most_expensive_product,
+last_value(product_name) over(partition by product_category order by price desc) as least_expensive_product
+from product ;
+-- when we try it we will get most_expensive output correct way but for least expensive it won't work
+--so we need full window frame to work properly
+
+select product_name,product_category,price,
+first_value(product_name) over(partition by product_category order by price DESC) as most_expensive_product,
+last_value(product_name) over(partition by product_category order by price desc 
+range between unbounded preceding and unbounded following) as least_expensive_product
+from product ;
+-- in the output it will display name of most expensive product in one column and least expensive product in another column will display
+--also we will get most expensive and least expensive product from per catagory wsing where clause
+
+
+select product_name,product_category,price,
+first_value(product_name) over(partition by product_category order by price DESC) as most_expensive_product,
+last_value(product_name) over(partition by product_category order by price desc 
+range between unbounded preceding and unbounded following) as least_expensive_product
+from product 
+where product_category ='Phone';
+-- HERE IN 'Phone' IN WHERE STATEMENT  BY MISTAKE I TYPED 'phone' means starts from small letter 
+--due to that i was able to see table structure without any output
+--so be carefful while writing names properli in' as postgres is caseinsensitive
+ 
+ -- FORE ABOVE ALTERNATE WAY USING 'WINDOW' CLAUSE
+ -- means we will create one window and pull argument like what we want as output then use this window
+-- in simple way what we were giving argument in over clause simply give or pull in window clause and use w directly here without writing whole argument
+
+select product_name,product_category,price,
+first_value(product_name) over w as most_expensive_product,
+last_value(product_name) over w as least_expensive_product
+from product 
+where product_category ='Phone'
+window w as (partition by product_category order by price desc 
+range between unbounded preceding and unbounded following);
+ 
+--Nth VALUE: FETCH Nth expensive product
+--if we try 5 number means 5th as product_category have only 4 products so it will show null
+
+select product_name,product_category,price,
+nth_value(product_name,5) over w as second_most_expensive_product
+from product
+window w as (partition by product_category order by price desc
+range between unbounded preceding and unbounded following);
+ 
+--but if we are sepretely want to see only nth value then we can directly use nth_value() and over
+-- even withouut using full window frame also we will get same output
+-- in short if we want full window frame output means  output in one frame first_value,last_value, nth_value at a time
+-- then can use window clause and want only one output then no need to create any window  or full window frame
+
+select product_name,product_category,price,
+nth_value(product_name,2) over(partition by product_category order by price desc)
+--range between unbounded preceding and unbounded following)  
+as second_most_expensive_product
+from product;
+ 
+ -- NTILE() GROUP PHONES INTO INTO EXPENSIVE , MID ,BUDGET
+--in short what NTILES do ti gives otput in diffferent bukets form whatever we mention
+ --its for all categories
+select x.product_name,
+case
+	when x.buckets = 1 then 'EXPENSIVE PRODUCT'
+	when x.buckets = 2 then 'MiD RANGE PRODUCT'
+	when x.buckets = 3 then 'CHEPER PHONE'
+end as product_category
+from
+(select *,
+Ntile(3) over (partition by product_category order by price desc) as buckets
+from product) x;
+ 
+ 
+ --same way for perticular category also we can find need to use where clause
+--it will devide phones in three categories by considering its price 
+
+select x.product_name,product_category,price,
+case 
+	when x.Buckets = 1 then 'expensive product'
+	when x.Buckets =2 then 'mid range product'
+	when x.Buckets = 3 then 'cheper product'
+end as phone_category
+from
+(select *,
+NTILE(3) over(partition by product_category order by price desc) as buckets
+from product
+where product_category = 'Phone') x;
+ 
+--CUME_DIST(): FETCH TOP 30% MOST EXPENSIVE PRODUCTS
+
+select *, 
+cume_dist() over (partition by product_category order by price desc ) as cume_dist
+from product; --where product_category = 'Phone';
+ --when we use it it will gives output like 0.333567778888 very long so to avoid it
+--just add round at the start of cum_dist sentwence and at the end ::numeric*100 ,2 )||'%'
+
+
+select x.* from
+(select *, 
+cume_dist() over (partition by product_category order by price desc ) as cume_dist,
+round(cume_dist() over (partition by product_category order by price desc ) ::numeric* 100,2) ||'%' as cume_dist_percentage
+from product)x
+where x.cume_dist <= 0.3;
+-- now output will be like 25.00%, 16.67%
+
+-- PERCENT RANK : FIND HOW EXPENSIVE A PRODUCT IS RELETIVE TO ALL OTHERS
+
+select x.* from
+(select *, 
+PERCENT_RANK() over (partition by product_category order by price desc ), 
+round(cume_dist() over (partition by product_category order by price desc ) ::numeric* 100,2) as per
+from product)x
+where x.PRODUCT_NAME='Apple Watch Series 6';
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
