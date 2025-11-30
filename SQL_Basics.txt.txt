@@ -1,0 +1,209 @@
+select current_database(); -- for finding current database
+create database schoolDB; -- to create database
+
+SELECT datname FROM pg_database; -- show database doesent work here so use thiss
+
+CREATE TABLE employees (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50),
+    department VARCHAR(50),
+    salary NUMERIC(10,2)
+);  --donn't know why but we cani see created databases and use it here but remember there is no need to use command to see databases we have to directly click on database from navigator and automatically it considered as we are using it
+
+create table employeesnew(
+id serial primary key,
+name varchar(50),
+department varchar(50),
+salary numeric(10,2)
+); --- SERIAL is a special PostgreSQL data type that auto-increments for each new row.
+-- PRIMARY KEY means this column uniquely identifies each row and cannot be null.
+-- NUMERIC(10,2) means it can have up to 10 digits in total, with 2 digits after the decimal point (e.g., 12345678.90).
+-- Smaller limits may use less memory or disk space., Shorter columns improve indexing and query speed, 
+--especially for WHERE and JOIN conditions., Makes your database schema clear—other developers know what to expect.
+
+
+SELECT table_catalog, table_schema, table_name
+FROM information_schema.tables
+WHERE table_name = 'employees';
+--It checks if a table named employees exists in your database.
+--It also tells you which database (table_catalog) and schema (table_schema) the table belongs to.
+--Useful when you have multiple schemas (like public, sales, etc.) and want to find the table location.
+
+create table employee4(
+id serial primary key,
+Fname varchar(50),
+Lname varchar(50),
+salary numeric (10,2));
+
+drop table employee4; --DROP TABLE is permanent; data cannot be recovered unless you have a backup.
+drop table if exists employeesnew;
+select * from employee4; --confirmed wether table deleted or not
+drop table employee4 cascade; --CASCADE is very powerful but should be used carefully—it will delete all dependent constraints, views, or foreign key references.
+
+select * from employees;
+
+insert into employees(name, department, salary) values
+('Alice', 'HR', 50000.00),
+('Bob', 'IT', 60000.00),
+('Alice', 'HR', 50000.00),     -- duplicate
+('Charlie', 'IT', 60000.00),
+('David', 'Finance', 70000.00),
+('Bob', 'IT', 60000.00),       -- duplicate
+('Eve', 'HR', 50000.00);
+
+select id from employees;
+select name, department from employees;
+select distinct salary from employees;
+
+-- get employees with highest salary
+select top 1 *  from employees -- it will work in mysql not in postgre
+
+--In PostgreSQL, SELECT TOP 1 does not work because that’s SQL Server syntax. 
+--Instead, you should use ORDER BY ... LIMIT.
+
+-- get the employee with highest salary
+select * from employees 
+order by salary desc 
+limit 1; 
+
+--get the employees with lowest salary
+select * from employees order by salary asc limit 1;
+
+-- get the employees name having same salary--
+
+select name, salary 
+from employees 
+where salary in(
+select salary 
+from employees 
+group by salary 
+having count(*) >1 
+);
+order by salary;
+--Groups employees by salary.
+--HAVING COUNT(*) > 1 → selects salaries that appear more than once (i.e., duplicates).
+--Selects all employees whose salary is in the list of duplicate salaries.
+--ORDER BY salary → optional, sorts the output by salary.
+
+--DAY 1 PRACTICE QUETIONS
+
+--1.Select all rows from column
+select * from employees;
+
+--2.select specific column
+select salary from employees;
+
+--3.sort by salary descending
+select * from employees 
+order by salary desc;
+
+--4.filter employees with salary <60000
+-- i wrote wrong query
+
+select * from employees
+order by salary
+having salary < 60000;
+
+--HAVING is not used for filtering individual rows—it’s 
+--only used with aggregate functions like COUNT(), SUM()
+--WHERE salary < 60000 → filters rows where salary is less than 60000.
+--ORDER BY salary → sorts the filtered rows in ascending order.
+--HAVING is only used with GROUP BY, for example:
+--To filter rows based on a column value, you should use WHERE.
+--HAVING is only used with GROUP BY so correct query
+
+select * from employees 
+where salary < 60000
+order by salary;
+
+-- 5.show unique departments
+ select distinct department from employees;
+
+--INTERMEDIATE
+
+--6.count employees in each department
+
+--wrong query
+--When you use GROUP BY, you can only select columns that are either grouped or aggregated.
+--SELECT * is invalid here because * includes all columns, not just department or aggregates.
+--HAVING department count(*) is invalid syntax. HAVING must be a condition, like COUNT(*) > 1.
+
+select * from employees 
+group by department 
+having department count(*);
+
+--COUNT(*) → counts number of employees in each department.
+--GROUP BY department → groups rows by department.
+
+select department ,count(*) 
+as employee_count --alias is used if dont it will show count column instead employee count
+from employees 
+group by department; --per department asked so group by
+
+-- 7.find total salary spent per department(count ,sum use at start only not with having)
+select department,sum(salary) 
+as spent_per_department 
+from employees 
+group by department; 
+
+--8.show employees whose name starts with "A"
+select * from employees 
+where name like 'A%';
+
+--9.Find employees with salary between 40k and 60k
+
+--its wrong again i used IN instead Between 
+--which returns only employees whose salary is exctly 40000 and 60000
+
+select * from employees where salary in(40000,60000);
+
+select * from employees where salary between 40000 and 60000;
+
+--10.show top highest 3 saleries
+
+select salary as top_3 from employees
+order by salary desc 
+limit 3;
+
+--11.find total number of employees
+
+select count(*) as total_number_of_employees from employees;
+
+--12.show department with max salary
+--You cannot use max(salary) without GROUP BY, all this aggregate functions use with group by only
+
+select department,max(salary) as max_salary from employees 
+group by department ;
+
+---always remember group by  with having, order by with where
+
+--13. count employees hired in 2024
+--WHERE must come before GROUP BY
+select year count(*) as total_hired_employees
+from employees 
+group by year where year=2024;
+
+--correct one
+SELECT year, COUNT(*) AS total_hired_employees
+FROM employees
+WHERE year = 2024
+GROUP BY year;
+
+--If you ONLY want the number (year not needed)
+SELECT COUNT(*) AS total_hired_employees
+FROM employees
+WHERE year = 2024;
+  
+
+--14.group employees by department
+--(group means some numbers founds group so use count)
+
+select department, count(*) as total_employee  
+from employees group by department;
+
+--15.show departments having more than 3 employees
+
+select department, count(*) as number_employees
+from employees 
+group by department 
+having count(*) >2;
